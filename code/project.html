@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>우주에서 외계인 피하기 게임</title>
+
+    <style>
+        #show {
+            background-image: url(../source/space.bmp);
+            width: 1000px;
+            height: 500px;
+            margin-top: 130px;
+            margin-left: 280px;
+            color: white;
+            font-size: 50px;
+            font-style: italic;
+        }
+
+        #key {
+            color: lightyellow;
+            font-weight: bold;
+            font-size: 15px;
+            font-style: normal;
+        }
+
+        body {
+            background-color: black;
+        }
+
+        #gl-canvas {
+            background-image: url(../source/space.bmp);
+        }
+
+        #time {
+            text-align: center;
+            color: white;
+            font-weight: bold;
+            font-size: 20px;
+            margin-left: 710px;
+            border: solid 2px red;
+            width: 150px;
+            background-color: red;
+        }
+
+        p {
+            background-color: rgb(39, 138, 238);
+            width: 200px;
+            margin-left: 390px;
+
+        }
+    </style>
+
+    <script src="http://code.jquery.com/jquery-3.1.0.js"></script>
+
+    <script>
+        $(document).ready(function () {
+            $('#show').on("click", function () {
+                $('#gl-canvas').show();
+                $('#show').hide();
+                $('#time').show();
+            });
+        });
+
+        function start() {
+            var time = 60;
+            var min = "";
+            var sec = "";
+
+            var x = setInterval(function () {
+                min = parseInt(time / 60);
+                sec = time % 60;
+
+                document.getElementById("time").innerHTML = min + "분 " + sec + "초";
+                time--;
+
+                if (time < 0) {
+                    clearInterval(x);
+                    document.getElementById("time").innerHTML = "시간초과";
+                    alert("TIME OUT .. ");
+                    document.location.href = "project.html";
+                }
+            }, 1000);
+        }
+    </script>
+
+    <script id="colorVS" type="x-shader/x-vertex">
+        attribute vec4 vPosition;
+
+            uniform mat4 modelMatrix, viewMatrix, projectionMatrix;
+            
+            void main() {
+                gl_Position = projectionMatrix * viewMatrix * modelMatrix * vPosition;
+            }
+        </script>
+
+    <script id="colorFS" type="x-shader/x-fragment">
+        precision mediump float;
+            
+            uniform vec4 uColor;
+            
+            void main() {
+                gl_FragColor = uColor;
+            }
+        </script>
+
+    <script id="phongVS" type="x-shader/x-vertex">
+        attribute vec4 vPosition;
+        attribute vec4 vNormal;
+
+        uniform mat4 modelMatrix, viewMatrix, projectionMatrix;
+        
+        varying vec3 fNormal, fWorldPos;
+
+        void main() {
+            gl_Position = projectionMatrix * viewMatrix * modelMatrix * vPosition;
+            
+            fNormal = normalize(mat3(modelMatrix) * vNormal.xyz);
+            fWorldPos = (modelMatrix * vPosition).xyz;
+        }
+        </script>
+
+    <script id="phongFS" type="x-shader/x-fragment">
+        precision mediump float;
+        varying vec3 fNormal, fWorldPos;
+
+        uniform vec3 eyePos;
+        uniform vec4 lightSrc, ambientProduct, diffuseProduct, specularProduct;
+        uniform float shininess;
+
+        uniform float fogStart, fogEnd;
+        uniform vec4 fogColor;
+        
+        void main() {
+            vec3 N = normalize(fNormal);
+            vec3 L = normalize(lightSrc.xyz);
+            float kd = max(dot(L, N), 0.0);
+            vec4 diffuse = kd * diffuseProduct;
+
+            vec3 V = normalize(eyePos - fWorldPos);
+            vec3 H = normalize(L + V);
+            float ks = pow(max(dot(N, H), 0.0), shininess);
+            vec4 specular = ks * specularProduct;
+
+            float fogDepth = length(eyePos-fWorldPos);
+            float fogFactor = smoothstep(fogStart, fogEnd, fogDepth);
+
+            //gl_FragColor = ambientProduct + diffuse + specular;
+            vec4 color = ambientProduct + diffuse + specular;
+            gl_FragColor = mix(color, fogColor, fogFactor);
+            gl_FragColor.a = 1.0;
+        }
+        </script>
+
+    <script id="texMapVS" type="x-shader/x-vertex">
+        attribute vec4 vPosition;
+        attribute vec4 vNormal;
+        attribute vec2 vTexCoord;
+
+        uniform mat4 modelMatrix, viewMatrix, projectionMatrix;
+
+        varying vec2 fTexCoord;
+        varying vec3 fNormal, fWorldPos;
+
+        void main(){
+            gl_Position = projectionMatrix * viewMatrix * modelMatrix * vPosition;
+
+            fNormal = normalize(mat3(modelMatrix) * vNormal.xyz);
+            fWorldPos = (modelMatrix * vPosition).xyz;
+            fTexCoord = vTexCoord;
+        }
+        </script>
+
+    <script id="texMapFS" type="x-shader/x-fragment">
+        precision mediump float;
+        
+        uniform sampler2D texture;
+        varying vec2 fTexCoord;
+        varying vec3 fNormal, fWorldPos;
+        
+        uniform vec3 eyePos;
+        uniform vec4 lightSrc, ambientProduct, diffuseProduct, specularProduct;
+        uniform float shininess;
+
+        uniform float fogStart, fogEnd;
+        uniform vec4 fogColor;
+
+        void main() {
+             vec3 N = normalize(fNormal);
+             vec3 L = normalize(lightSrc.xyz);
+             float kd = max(dot(L, N), 0.0);
+             vec4 diffuse = kd * diffuseProduct;
+
+             vec3 V = normalize(eyePos - fWorldPos);
+             vec3 H = normalize(L + V);
+             float ks = pow(max(dot(N, H), 0.0), shininess);
+             vec4 specular = ks * specularProduct;
+
+             float fogDepth = length(eyePos - fWorldPos);
+             float fogFactor = smoothstep(fogStart, fogEnd, fogDepth);
+
+
+             //gl_FragColor = (ambientProduct + diffuse + specular) * texture2D(texture, fTexCoord);
+             vec4 color = (ambientProduct + diffuse + specular) * texture2D(texture, fTexCoord);
+             gl_FragColor = mix(color, fogColor, fogFactor);
+             gl_FragColor.a = 1.0;
+        }
+        </script>
+    <script type="text/javascript" src="../Common/webgl-utils.js"></script>
+    <script type="text/javascript" src="../Common/initShaders.js"></script>
+    <script type="text/javascript" src="../Common/MV.js"></script>
+    <script type="text/javascript" src="../trackball.js"></script>
+    <script type="text/javascript" src="project.js"></script>
+</head>
+
+<body>
+    <div id="screen" style="width:900px; text-align:center;"></div>
+    <canvas id="gl-canvas" width="995" height="495" hidden style="margin-top: 130px;
+            margin-left: 280px;">
+        Oops... your browser doesn't support the HTML5 canvas element!
+    </canvas>
+    <div>
+        <img src="../source/desert.bmp" hidden>
+        <img src="../source/monster.bmp" hidden>
+
+    </div>
+    <button id="show" onclick="start()">
+        <br>우주에서 외계인 피하기<br>
+        <p>PLAY</p><br>
+        <div id="key">방향키 - W/A/S/D</div>
+    </button>
+    <div id="time" hidden></div> <br><br><br>
+    <audio controls loop autoplay hidden>
+        <source src="../source/game2.mp3">
+    </audio>
+</body>
+
+</html>
